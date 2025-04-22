@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>犹太民族历史迁徙地图 - 创意作业</title>
+    <!-- 引用本地Leaflet CSS -->
+    <link rel="stylesheet" href="./leaflet.css">
+    <style>
+        /* Ensure html takes full height */
+        html {
+            height: 100%;
+            overflow: hidden; /* Prevent scrollbar on html */
+        }
+        /* 基础重置 */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, "Helvetica Neue", Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* Use height 100% instead of min-height */
+            color: #333;
+            overflow: hidden; /* Prevent scrollbar on body */
+        }
+
+        /* 头部样式 */
+
+        header {
+            /* Keep the original background layers */
+            background-color: #0056b3; /* Fallback color */
+            background-image:
+                /* Subtle diagonal lines pattern */
+                repeating-linear-gradient(
+                    45deg,
+                    rgba(255, 255, 255, 0.05),
+                    rgba(255, 255, 255, 0.05) 1px,
+                    transparent 1px,
+                    transparent 10px
+                ),
+                /* Blue gradient */
+                linear-gradient(135deg, #0038a8 0%, #0056b3 100%);
+
+            padding: 10px 0; /* 修改水平内边距为0 */
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Slightly softer shadow */
+            position: absolute; /* Position absolutely to overlay the map */
+            top: 0;             /* Align to the top of the viewport */
+            left: 0;            /* Align to the left of the viewport */
+            width: 100%;        /* Take full width */
+            z-index: 1000; /* Ensure header is above map */
+            border-bottom: none; /* Remove the border as it interferes with the fade */
+            pointer-events: none; /* Allow clicks to pass through transparent areas to the map */
+
+            /* Adjust the mask to fade out faster */
+            mask-image: linear-gradient(to bottom, black 80%, transparent 100%); /* Fade starts earlier, finishes sooner */
+            -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 80%); /* For Safari/Chrome compatibility */
+
+            /* Reduce extra padding at the bottom */
+            padding-bottom: 50px; /* Less padding needed now */
+
+            /* 新增：确保标题容器对齐方式正确 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0 auto; /* 使用 margin: 0 auto 确保水平居中 */
+            font-size: 2.2em; /* Slightly larger font size */
+            color: #FFDA00;
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3); /* Slightly stronger text shadow */
+            font-weight: 600;
+            letter-spacing: 1px; /* Add subtle letter spacing for elegance */
+            pointer-events: auto; /* Make the H1 clickable/selectable again */
+            /* 确保文本在其容器内居中 */
+            text-align: center;
+            width: fit-content;
+            padding: 0 20px; /* 添加一些水平内边距 */
+        }
+
+        /* 主要内容区域 - Flex布局 */
+        main {
+            flex-grow: 1; /* Allow main to grow and fill body */
+            display: flex;
+            flex-direction: column; /* Default direction */
+            position: relative;
+            min-height: 0; /* Crucial for flex children height calculation */
+            overflow: hidden; /* Prevent main from overflowing */
+        }
+
+        #mapid {
+            flex-grow: 1; /* Allow map to take remaining space */
+            width: 100%;
+            background-color: #4a90e2;
+            order: 1;
+            position: relative;
+            z-index: 1;
+            min-height: 0; /* Add min-height 0 for flex sizing */
+        }
+
+        .leaflet-container {
+            background: none;
+        }
+
+        /* Custom Icons (all markers use star image) */
+        .leaflet-marker-icon.star-of-david-marker {
+            filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5));
+            cursor: pointer;
+        }
+
+        /* Popup Styles */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            background-color: rgba(255, 255, 255, 0.98);
+            border: 1px solid #ddd;
+            opacity: 1;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaflet-popup-close-button {
+            color: #555;
+            font-size: 18px;
+            top: 8px;
+            right: 8px;
+        }
+
+        .leaflet-popup-content {
+            width: auto !important;
+            min-width: 280px;
+            max-width: 800px;
+            color: #333;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 10px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .leaflet-popup-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .leaflet-popup-content::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+        }
+
+        .leaflet-popup-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        .popup-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #004a99;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #004a99;
+            padding-bottom: 6px;
+        }
+
+        .popup-header-flex {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #004a99;
+            padding-bottom: 6px;
+        }
+
+        .popup-music-inline {
+            margin-top: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .popup-music-inline .music-title-inline {
+            font-size: 0.9em;
+            color: #555;
+            font-style: italic;
+            margin-right: 10px;
+        }
+
+        .popup-music-inline audio {
+            width: 150px;
+            height: 30px;
+            flex-shrink: 0;
+        }
+
+        .popup-section {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #ccc;
+        }
+
+        .popup-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .popup-section h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1.05em;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .popup-background,
+        .popup-proverb {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #666;
+        }
+
+        .popup-proverb .hebrew {
+            font-family: 'David Libre', 'Arial', sans-serif;
+            direction: rtl;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+            color: #0038a8;
+            font-weight: bold;
+            text-align: right;
+            line-height: 1.4;
+        }
+
+        .popup-proverb .chinese {
+            font-size: 1em;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .popup-music h4 {
+            margin-bottom: 8px;
+        }
+
+        .popup-music p {
+            margin-bottom: 8px;
+            font-style: italic;
+            color: #555;
+            font-size: 1em;
+        }
+
+        .popup-music audio {
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .leaflet-tooltip {
+            padding: 5px 8px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 0.85em;
+            color: #333;
+            font-weight: bold;
+            white-space: nowrap;
+            z-index: 100;
+            cursor: pointer;
+        }
+
+        .leaflet-tooltip.leaflet-tooltip-top:before {
+            border-top-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .leaflet-tooltip.leaflet-tooltip-bottom:before {
+            border-bottom-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .leaflet-tooltip.leaflet-tooltip-left:before {
+            border-left-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .leaflet-tooltip.leaflet-tooltip-right:before {
+            border-right-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .info-bar {
+            width: 100%;
+            background-color: #fff;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            font-size: 0.95em;
+            line-height: 1.5;
+            color: #555;
+            flex-shrink: 0;
+            order: 2;
+            z-index: 1000;
+            position: relative;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            max-height: 50vh;
+        }
+
+        .info-bar h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-bar.collapsed h2 {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .info-bar .info-content {
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .info-bar.collapsed .info-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #info-toggle-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.85em;
+            z-index: 1001;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        #info-toggle-button:hover {
+            background-color: #0038a8;
+        }
+
+        .leaflet-control-attribution {
+            display: none;
+        }
+
+        .leaflet-control-zoom {
+            position: absolute;
+            top: 50%;
+            left: 100px;
+            transform: translateY(-50%);
+            z-index: 10;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+        }
+
+        .leaflet-control-zoom a {
+             background-color: white;
+             color: #333;
+        }
+         .leaflet-control-zoom a:hover {
+             background-color: #f4f4f4;
+         }
+
+        @media (min-width: 768px) {
+            main {
+                flex-direction: row;
+            }
+
+            #mapid {
+                flex-grow: 1;
+                order: 1;
+                min-height: 0;
+            }
+
+            .info-bar {
+                width: 320px;
+                height: 100%;
+                box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+                order: 2;
+                padding: 15px 20px;
+                max-height: 100%;
+                transition: width 0.3s ease, padding 0.3s ease;
+                overflow-y: auto;
+                flex-shrink: 0;
+            }
+
+            .info-bar.collapsed {
+                width: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                overflow: visible !important;
+                background: transparent !important;
+            }
+
+            .info-bar.collapsed .info-content,
+            .info-bar.collapsed h2 {
+                display: none !important;
+            }
+
+            .info-bar.collapsed #info-toggle-button {
+                position: fixed;
+                top: 50%;
+                right: 10px;
+                transform: translateY(-50%);
+                z-index: 1002;
+                left: auto;
+            }
+
+            body {
+                min-height: auto;
+            }
+
+            .info-bar.collapsed {
+                max-height: none !important;
+                height: 0 !important;
+                width: 0 !important;
+                overflow: visible !important;
+            }
+
+            .info-bar.collapsed #info-toggle-button {
+                top: 100px;
+                right: 6px;
+                left: auto;
+            }
+        }
+
+        .migration-line-hover {
+            stroke-width: 5 !important;
+            stroke: #FFDA00 !important;
+            stroke-opacity: 1 !important;
+        }
+    </style>
+    <!-- Try linking a Google Font for Hebrew (Optional, needs local download for offline) -->
+    <!-- <link href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&display=swap" rel="stylesheet"> -->
+
+</head>
+
+<body>
+
+    <header>
+        <h1>犹太民族历史迁徙地图</h1>
+    </header>
+
+    <main>
+        <div id="mapid"></div>
+        <div class="info-bar">
+            <button id="info-toggle-button">收起</button> <!-- Toggle Button -->
+            <div class="info-content">
+                <h2>创意作业说明</h2>
+                <p>此地图动态呈现犹太民族重要的历史迁徙路线。</p>
+                <p>地图上的蓝色虚线代表迁徙路线，<strong>六芒星</strong>标记重要地点（起点或终点）。</p>
+                <p>点击标记图标或地名标签，即可查看该迁徙事件的信息、塔木德箴言及音乐。</p>
+                <p><strong>注意：</strong>地图底图为一张静态图片，坐标系可能存在微小偏差；希伯来文显示效果取决于您的操作系统和浏览器是否支持相应的字体；连线使用 Leaflet-Curve
+                    插件绘制；音频文件需要本地存在才能正常播放。</p>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- 引用本地Leaflet JS -->
+    <script src="./leaflet.js"></script>
+    <!-- 引用本地Leaflet-Curve JS -->
+    <script src="./leaflet.curve.js"></script>
+    <!-- REMOVED Leaflet-Arrowheads JS reference as it won't work with file:// -->
+    <script src="./leaflet.polylineDecorator.js"></script>
+
+
+    <script>
+        // Define map center and initial zoom level
+        const initialCoords = [30.0444, 31.2357]; // Approximate Middle East location
+        const initialZoom = 4;
+        const minZoom = 3; // ★★★ 您可以在这里调整地图的最小缩放级别 (1 表示全球范围，防止过度缩小) ★★★
+        const maxZoom = 6; // Maximum zoom level (controls maximum zoom in)
+
+        // Create map instance
+        const map = L.map('mapid', {
+            crs: L.CRS.EPSG4326,
+            minZoom: minZoom, // Minimum zoom level (controls maximum zoom out)
+            maxZoom: maxZoom, // Maximum zoom level (controls maximum zoom in)
+            center: initialCoords,
+            zoom: initialZoom,
+            attributionControl: false, // Hide default Leaflet attribution
+            maxBounds: [[-90, -180], [90, 180]], // Restrict panning to world bounds
+            maxBoundsViscosity: 1.0, // Make bounds "hard"
+            autoPanPadding: L.point(80, 80) // Padding when auto-panning to show popup
+        });
+
+        // Add world map image as base layer
+        const imageUrl = './world-map.jpg';
+        const imageBounds = [[-90, -180], [90, 180]]; // [south, west], [north, east]
+        L.imageOverlay(imageUrl, imageBounds).addTo(map);
+
+        // Define Star of David Icon (L.icon using an image) - Used for ALL markers now
+        const starOfDavidIcon = L.icon({
+            iconUrl: './star.png', // Path to your Star of David image
+            iconSize: [30, 30], // Image size (adjust based on your star.png)
+            iconAnchor: [15, 15], // Center anchor (iconSize / 2)
+            popupAnchor: [0, -15], // Popup position relative to anchor
+            className: 'star-of-david-marker' // Add a class for CSS styling (shadow etc.)
+        });
+
+
+        // Define migration data
+        const migrations = [
+            {
+                start: { name: '古代埃及', coords: [30.0444, 31.2357] }, // Cairo area
+                end: { name: '迦南（今以色列地区）', coords: [31.7683, 35.2137] }, // Jerusalem area
+                time: '约公元前13世纪',
+                background: '圣经记载摩西带领希伯来人逃离埃及奴役，经过旷野四十年抵达应许之地迦南，标志着犹太民族诞生和追求自由的起点。',
+                proverb_he: 'בְּכָל דּוֹר וָדוֹר חַיָּב אָדָם לִרְאוֹת אֶת עַצְמוֹ כְּאִלּוּ הוּא יָצָא מִמִּצְרַיִם',
+                proverb_zh: '每一世代的人都应看自己仿佛亲身经历过出埃及。',
+                music: { title: '《当你相信》(动画《埃及王子》主题曲)', file: 'music/exodus.mp3' }
+            },
+            {
+                start: { name: '耶路撒冷', coords: [31.7683, 35.2137] },
+                end: { name: '巴比伦（两河流域）', coords: [33.3152, 44.3661] }, // Baghdad area
+                time: '公元前597–538年',
+                background: '尼布甲尼撒二世攻陷耶路撒冷，第一圣殿被毁，大批犹太人（尤达王国居民）被强制迁往巴比伦。在异乡经历半个世纪的“巴比伦之囚”，犹太人坚持信仰和身份认同，等待归返重建家园。',
+                proverb_he: 'בכל מקום שגלו ישראל, שכינה עמהם',
+                proverb_zh: '无论被放逐到何处，神的圣临都与他们同在。',
+                music: { title: '威尔第歌剧《纳布科》中的“飞吧，思想”合唱', file: 'music/nabucco.mp3' }
+            },
+            {
+                start: { name: '耶路撒冷', coords: [31.7683, 35.2137] },
+                end: { name: '罗马帝国各地', coords: [41.9028, 12.4964] }, // Rome as representative
+                time: '公元70–135年',
+                background: '罗马帝国两次镇压犹太起义（70年和135年）后，耶路撒冷及第二圣殿被毁。幸存的犹太人被杀戮、为奴或流散至帝国各省。这标志着漫长的犹太大流散开端，民族中心转入散居各地的社区。',
+                proverb_he: 'כל ישראל ערבין זה בזה',
+                proverb_zh: '全体以色列人皆彼此相互负责。',
+                music: { title: '布鲁赫《Kol Nidrei》大提琴曲', file: 'music/kolnidrei.mp3' }
+            },
+            {
+                start: { name: '中东腹地（如巴格达）', coords: [33.3152, 44.3661] }, // Baghdad area
+                end: { name: '安达卢斯（科尔多瓦等西班牙南部）', coords: [37.8916, -4.7715] }, // Cordoba
+                time: '公元8–12世纪',
+                background: '穆斯林征服西班牙后，犹太人在安达卢斯地区迎来文化“黄金时代”。在相对宽容的社会环境中，犹太教徒在宗教、哲学、医学和诗歌等领域取得杰出成就，与穆斯林、基督徒和谐共处。',
+                proverb_he: 'למד לשונך לומר איני יודע',
+                proverb_zh: '要让你的舌头学会说“我不知道”，这样才能不断进步。',
+                music: { title: '塞法迪犹太民谣风格音乐', file: 'music/andalus.mp3' } //  placeholder, please provide file
+            },
+            {
+                start: { name: '西班牙各地', coords: [37.8916, -4.7715] }, // Cordoba as representative
+                end: { name: '奥斯曼帝国（如伊斯坦布尔）', coords: [41.0082, 28.9784] }, // Istanbul
+                time: '1492年起',
+                background: '天主教双王下令驱逐不愿改宗的犹太人，结束了安达卢斯的宽容时代。约20万塞法迪犹太人被迫离开西班牙和葡萄牙，大批流亡至奥斯曼帝国治下的巴尔干、北非和中东各地，在他乡延续文化与信仰。',
+                proverb_he: 'אפילו חרב חדה מונחת על צווארו של אדם, אל יתייאש מן הרחמים',
+                proverb_zh: '即使利刃架在颈上，也不可对上苍的慈悲绝望。',
+                music: { title: '拉迪诺语塞法迪歌曲《Adio Kerida》', file: 'music/adio.mp3' } // placeholder, please provide file
+            },
+            {
+                start: { name: '中欧德国等地', coords: [50.0647, 19.9450] }, // Krakow area as representative
+                end: { name: '波兰王国（日后波兰–立陶宛）', coords: [52.2297, 21.0122] }, // Warsaw
+                time: '公元12–16世纪',
+                background: '中世纪晚期，因西欧频繁的迫害和驱逐，大批犹太人迁入相对宽容的波兰。波兰统治者颁布法令保障犹太人自治和宗教自由，波兰逐渐成为欧洲犹太文化中心，“波兰天堂”时期社区繁荣，孕育了日后东欧庞大的犹太人口。',
+                proverb_he: 'אם אין אני לי, מי לי? וכשאני לעצמי, מה אני? ואם לא עכשיו, אימתי?',
+                proverb_zh: '若我不为自己，谁来为我？若我只为自己，我算什么？若不此时，更待何时？',
+                music: { title: '传统东欧克莱兹默音乐', file: 'music/klezmer1.mp3' } // placeholder, please provide file
+            },
+            {
+                start: { name: '纳粹占领下的欧洲', coords: [50.0647, 19.9450] }, // Krakow area as representative
+                end: { name: '中国上海虹口区', coords: [31.2304, 121.4737] }, // Shanghai
+                time: '1933–1941年',
+                background: '二战前夕，纳粹德国逐步剥夺犹太人生存权利，大批难民寻求出路。彼时上海对犹太难民实行免签开放，成为生命方舟。上万来自德国、奥地利等地的犹太人在30年代逃亡上海，在异国他乡艰难维持社区，躲过了欧洲的浩劫，等待战后重建生活。',
+                proverb_he: 'כל המקיים נפש אחת מישראל כאילו קיים עולם מלא', // Sanhedrin 37a
+                proverb_zh: '凡救人一命，即救全世界。',
+                music: { title: '电影《辛德勒的名单》主题曲', file: 'music/schindler.mp3' }
+            },
+            {
+                start: { name: '俄国隔离定居区', coords: [50.4501, 30.5234] }, // Kyiv area as representative
+                end: { name: '美国等西方国家', coords: [40.7128, -74.0060] }, // New York
+                time: '19世纪末–20世纪初',
+                background: '沙皇俄国治下的犹太人长期受限于西部的“隔离定居区”，且屡遭反犹骚乱（如1881年和1903年的大规模暴动）。在困境与暴力中，约有两百万东欧犹太人于1880年代起逃离俄国，远赴美国等地寻求安全和机遇，促成了美国大城市中的犹太移民社区兴起。',
+                proverb_he: 'הזית אין מוציא זיתיו אלא אם כן כתשוהו, כך ישראל אין נגאלים עד שיתייסרו', // Midrash Tanchuma Vayeshev 9 (idea, wording varies)
+                proverb_zh: '橄榄唯有受压榨才能出油，人唯有经历磨难才能坚韧。',
+                music: { title: '传统克莱兹默音乐', file: 'music/klezmer1.mp3' } // placeholder, please provide file
+            },
+            {
+                start: { name: '世界各侨居地', coords: [35, 0] }, // Central Mediterranean as representative
+                end: { name: '巴勒斯坦/以色列', coords: [31.7683, 35.2137] }, // Jerusalem area
+                time: '19世纪末–20世纪中叶',
+                background: '随着19世纪末锡安主义兴起，流散各地的犹太人开始向祖先故土巴勒斯坦迁移（阿利亚运动）。第二次世界大战后，大批幸存者和侨民涌入英属巴勒斯坦托管地。1948年以色列建国，实现了两千年流亡后的复国梦想。',
+                proverb_he: 'לשנה הבאה בירושלים',
+                proverb_zh: '明年在耶路撒冷！',
+                music: { title: '以色列国歌《hatikvah》', file: 'music/hatikvah.mp3' }
+            }
+        ];
+
+        // Helper function to calculate a control point for a curved line
+        function getCurvedControlPoint(start, end, migrationIndex, maxOffsetDegrees = 25, distanceScale = 100) {
+            const startLatLng = L.latLng(start);
+            const endLatLng = L.latLng(end);
+
+            if (startLatLng.equals(endLatLng, 1e-6)) {
+                return [startLatLng.lat, startLatLng.lng];
+            }
+
+            const midLat = (startLatLng.lat + endLatLng.lat) / 2;
+            let midLng = (startLatLng.lng + endLatLng.lng) / 2;
+
+            if (Math.abs(startLatLng.lng - endLatLng.lng) > 180) {
+                midLng = (startLatLng.lng + endLatLng.lng + 360) / 2;
+                midLng = (midLng + 180) % 360 - 180;
+            }
+
+            const deltaLat = endLatLng.lat - startLatLng.lat;
+            const deltaLng = endLatLng.lng - startLatLng.lng;
+
+            const angleRad = Math.atan2(deltaLat, deltaLng);
+            const perpAngleRad = angleRad + (migrationIndex % 2 === 0 ? Math.PI / 2 : -Math.PI / 2);
+
+            const distanceDegrees = Math.sqrt(deltaLat * deltaLat + deltaLng * deltaLng);
+            const offsetMagnitude = maxOffsetDegrees * Math.min(1, distanceDegrees / distanceScale);
+
+            let controlLat = midLat + offsetMagnitude * Math.sin(perpAngleRad);
+            let controlLng = midLng + offsetMagnitude * Math.cos(perpAngleRad);
+
+            controlLng = (controlLng + 180) % 360 - 180;
+
+            return [controlLat, controlLng];
+        }
+
+        const uniqueLocations = {};
+
+        migrations.forEach(migration => {
+            const startKey = migration.start.coords.join(',');
+            const endKey = migration.end.coords.join(',');
+
+            if (!uniqueLocations[startKey]) {
+                uniqueLocations[startKey] = {
+                    name: migration.start.name,
+                    coords: migration.start.coords,
+                    isStart: true,
+                    isEnd: false,
+                    startMigrations: [migration],
+                    endMigrationData: null,
+                    marker: null
+                };
+            } else {
+                uniqueLocations[startKey].isStart = true;
+                if (!uniqueLocations[startKey].startMigrations) uniqueLocations[startKey].startMigrations = [];
+                uniqueLocations[startKey].startMigrations.push(migration);
+            }
+
+            if (!uniqueLocations[endKey]) {
+                uniqueLocations[endKey] = {
+                    name: migration.end.name,
+                    coords: migration.end.coords,
+                    isStart: false,
+                    isEnd: true,
+                    startMigrations: [],
+                    endMigrationData: migration,
+                    marker: null
+                };
+            } else {
+                uniqueLocations[endKey].isEnd = true;
+                uniqueLocations[endKey].endMigrationData = migration;
+            }
+        });
+
+        const allMarkerCoords = [];
+        const ancientEgyptKey = migrations[0].start.coords.join(',');
+
+        Object.keys(uniqueLocations).forEach(key => {
+            const locationData = uniqueLocations[key];
+            const coords = locationData.coords;
+            let marker;
+
+            const shouldCreateMarker = locationData.isEnd || (locationData.isStart && !locationData.isEnd);
+
+            if (!shouldCreateMarker) {
+                return;
+            }
+
+            marker = L.marker(coords, { icon: starOfDavidIcon });
+            allMarkerCoords.push(coords);
+
+            if (key === ancientEgyptKey) {
+                const egyptMigration = migrations[0];
+                const egyptPopupContent = `
+                    <div class="popup-title">${egyptMigration.start.name}</div>
+                    <div class="popup-music-inline">
+                        <span class="music-title-inline">${egyptMigration.music.title}</span>
+                        <audio controls preload="none" controlsList="nodownload noplaybackrate">
+                            <source src="${egyptMigration.music.file}" type="audio/mpeg">
+                            您的浏览器不支持音频播放。
+                        </audio>
+                    </div>
+                    <div class="popup-section">
+                        <h4>相关事件：出埃及</h4>
+                        <p>${egyptMigration.time}</p>
+                    </div>
+                    <div class="popup-section">
+                        <h4>背景：</h4>
+                        <p class="popup-background">${egyptMigration.background}</p>
+                    </div>
+                    <div class="popup-section">
+                        <h4>塔木德箴言：</h4>
+                        <p class="popup-proverb">
+                            <span class="hebrew" lang="he">${egyptMigration.proverb_he}</span>
+                            <span class="chinese">${egyptMigration.proverb_zh}</span>
+                        </p>
+                    </div>
+                `;
+                marker.bindPopup(egyptPopupContent, {
+                    maxWidth: 800,
+                    autoPan: true,
+                    autoPanPadding: L.point(80, 80)
+                });
+
+                marker.on('popupopen', function () {
+                    try {
+                        document.querySelectorAll('audio').forEach(otherAudio => { /* ... pause logic ... */ });
+                        const audio = this.getPopup()?.getContent().querySelector('audio');
+                        if (audio) {
+                            audio.play().catch(error => console.warn("Audio autoplay failed:", error));
+                        }
+                    } catch (e) { console.error("Error on audio popupopen:", e); }
+                });
+                marker.on('popupclose', function () {
+                    try {
+                        const audio = this.getPopup()?.getContent().querySelector('audio');
+                        if (audio && !audio.paused) {
+                            audio.pause();
+                            audio.currentTime = 0;
+                        }
+                    } catch (e) { console.error("Error on audio popupclose:", e); }
+                });
+
+            } else if (locationData.isEnd) {
+                const migration = locationData.endMigrationData;
+                if (migration) {
+                    const endPopupContent = `
+                    <div class="popup-title">${migration.end.name}</div>
+                    <div class="popup-music-inline">
+                        <span class="music-title-inline">${migration.music.title}</span>
+                        <audio controls preload="none" controlsList="nodownload noplaybackrate">
+                            <source src="${migration.music.file}" type="audio/mpeg">
+                            您的浏览器不支持音频播放。
+                        </audio>
+                    </div>
+                    <div class="popup-section">
+                        <h4>时间：</h4>
+                        <p>${migration.time}</p>
+                    </div>
+                    <div class="popup-section">
+                        <h4>背景：</h4>
+                        <p class="popup-background">${migration.background}</p>
+                    </div>
+                    <div class="popup-section">
+                        <h4>塔木德箴言：</h4>
+                        <p class="popup-proverb">
+                            <span class="hebrew" lang="he">${migration.proverb_he}</span>
+                            <span class="chinese">${migration.proverb_zh}</span>
+                        </p>
+                    </div>
+                `;
+                    marker.bindPopup(endPopupContent, {
+                        maxWidth: 800,
+                        autoPan: true,
+                        autoPanPadding: L.point(80, 80)
+                    });
+
+                    marker.on('popupopen', function () { /* ... audio play logic ... */ });
+                    marker.on('popupclose', function () { /* ... audio stop logic ... */ });
+                }
+
+            } else if (locationData.isStart && !locationData.isEnd) {
+                const startPopupContent = `
+                <div class="popup-title">${locationData.name}</div>
+                <div class="popup-section">
+                    <h4>迁徙起点</h4>
+                    <p>此地是以下迁徙的起点：</p>
+                    <ul>
+                        ${locationData.startMigrations.map(mig => `<li>至 ${mig.end.name} (${mig.time})</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+                marker.bindPopup(startPopupContent, {
+                    maxWidth: 800,
+                    autoPan: true,
+                    autoPanPadding: L.point(80, 80)
+                });
+            }
+
+            marker.addTo(map);
+
+            const tooltip = marker.bindTooltip(locationData.name, { /* ... tooltip options ... */ });
+
+            uniqueLocations[key].marker = marker;
+        });
+
+        migrations.forEach((migration, index) => {
+            const startKey = migration.start.coords.join(',');
+            const endKey   = migration.end.coords.join(',');
+            const startLocation = uniqueLocations[startKey];
+            const endLocation   = uniqueLocations[endKey];
+            if (!startLocation || !endLocation) return;
+
+            const startPos = startLocation.marker ? startLocation.marker.getLatLng()
+                                                : L.latLng(startLocation.coords);
+            const endPos   = endLocation.marker   ? endLocation.marker.getLatLng()
+                                                : L.latLng(endLocation.coords);
+
+            const ctrlArr = getCurvedControlPoint(
+                [startPos.lat, startPos.lng],
+                [endPos.lat,   endPos.lng], index
+            );
+            const ctrlLL = L.latLng(ctrlArr[0], ctrlArr[1]);
+
+            const curve = L.curve(
+                ['M', [startPos.lat, startPos.lng],
+                'Q', ctrlArr,
+                [endPos.lat,   endPos.lng]],
+                {color:'#0056b3', weight:3, opacity:.9}
+            ).addTo(map);
+
+            function sampleQuadBezier(p0, p1, p2, n = 60){
+                const pts = [];
+                for(let i=0;i<=n;i++){
+                    const t = i/n, u = 1-t;
+                    const lat = u*u*p0.lat + 2*u*t*p1.lat + t*t*p2.lat;
+                    const lng = u*u*p0.lng + 2*u*t*p1.lng + t*t*p2.lng;
+                    pts.push([lat, lng]);
+                }
+                return pts;
+            }
+            const polylinePoints = sampleQuadBezier(startPos, ctrlLL, endPos, 60);
+
+            L.polylineDecorator(polylinePoints,{
+                patterns:[{
+                    offset:'8%',
+                    repeat:50,
+                    symbol:L.Symbol.arrowHead({
+                        pixelSize:10,
+                        headAngle:60,
+                        polygon:true,
+                        pathOptions:{
+                            color:'#0056b3',
+                            weight:0,
+                            fillOpacity:1
+                        }
+                    })
+                }]
+            }).addTo(map);
+
+        });
+
+        const allRouteCoords = [];
+        migrations.forEach(mig => {
+            allRouteCoords.push(mig.start.coords);
+            allRouteCoords.push(mig.end.coords);
+        });
+
+        const bounds = L.latLngBounds(allRouteCoords);
+
+        map.invalidateSize();
+        setTimeout(() => { map.invalidateSize(); }, 200);
+
+        const infoBar = document.querySelector('.info-bar');
+        const toggleButton = document.getElementById('info-toggle-button');
+        const infoContent = document.querySelector('.info-content');
+
+        toggleButton.addEventListener('click', function () {
+            const isCollapsed = infoBar.classList.toggle('collapsed');
+            toggleButton.textContent = isCollapsed ? '展开项目说明' : '收起项目说明';
+
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+        });
+
+        window.addEventListener('resize', () => {
+            map.invalidateSize();
+            const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+            if (infoBar.classList.contains('collapsed')) {
+                toggleButton.textContent = isDesktop ? '收起' : '展开';
+            } else {
+                toggleButton.textContent = '收起';
+            }
+        });
+
+        toggleButton.textContent = '收起';
+
+        let autoPlayState = {
+            isPlaying: false,
+            currentIndex: 0,
+            timer: null,
+            playButton: null
+        };
+
+        function createAutoPlayControls() {
+            const controlsContainer = L.DomUtil.create('div', 'auto-play-controls');
+            controlsContainer.style.position = 'absolute';
+            controlsContainer.style.bottom = '20px';
+            controlsContainer.style.left = '20px';
+            controlsContainer.style.zIndex = '1000';
+            controlsContainer.style.display = 'flex';
+            controlsContainer.style.flexDirection = 'row';
+            controlsContainer.style.alignItems = 'center';
+            controlsContainer.style.background = 'rgba(255, 255, 255, 0.8)';
+            controlsContainer.style.padding = '10px';
+            controlsContainer.style.borderRadius = '8px';
+            controlsContainer.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
+            
+            const playButton = L.DomUtil.create('button', 'play-button', controlsContainer);
+            playButton.innerHTML = '▶️ 开始旅程';
+            playButton.style.background = '#0056b3';
+            playButton.style.color = 'white';
+            playButton.style.border = 'none';
+            playButton.style.borderRadius = '5px';
+            playButton.style.padding = '8px 15px';
+            playButton.style.cursor = 'pointer';
+            playButton.style.fontSize = '14px';
+            playButton.style.fontWeight = 'bold';
+            playButton.style.display = 'flex';
+            playButton.style.alignItems = 'center';
+            playButton.style.justifyContent = 'center';
+            
+            const statusText = L.DomUtil.create('div', 'status-text', controlsContainer);
+            statusText.innerHTML = '点击开始犹太民族迁徙历史之旅';
+            statusText.style.marginLeft = '10px';
+            statusText.style.color = '#333';
+            statusText.style.fontSize = '14px';
+            
+            document.querySelector('#mapid').appendChild(controlsContainer);
+            
+            autoPlayState.playButton = playButton;
+            autoPlayState.statusText = statusText;
+            
+            playButton.addEventListener('click', toggleAutoPlay);
+            
+            L.DomEvent.disableClickPropagation(controlsContainer);
+        }
+
+        function toggleAutoPlay() {
+            if (autoPlayState.isPlaying) {
+                stopAutoPlay();
+            } else {
+                startAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            autoPlayState.isPlaying = true;
+            autoPlayState.playButton.innerHTML = '⏸️ 暂停旅程';
+            
+            if (autoPlayState.currentIndex >= migrations.length) {
+                autoPlayState.currentIndex = 0;
+            }
+            
+            playCurrentMigration();
+        }
+
+        function stopAutoPlay() {
+            autoPlayState.isPlaying = false;
+            autoPlayState.playButton.innerHTML = '▶️ 继续旅程';
+            
+            if (autoPlayState.timer) {
+                clearTimeout(autoPlayState.timer);
+                autoPlayState.timer = null;
+            }
+            
+            document.querySelectorAll('.migration-line-highlight').forEach(element => {
+                element.classList.remove('migration-line-highlight');
+            });
+        }
+
+        function playCurrentMigration() {
+            if (!autoPlayState.isPlaying) return;
+            
+            const migration = migrations[autoPlayState.currentIndex];
+            if (!migration) return;
+            
+            autoPlayState.statusText.innerHTML = `${autoPlayState.currentIndex + 1}/${migrations.length}: ${migration.start.name} → ${migration.end.name}`;
+            
+            const startKey = migration.start.coords.join(',');
+            const endKey = migration.end.coords.join(',');
+            const startLocation = uniqueLocations[startKey];
+            const endLocation = uniqueLocations[endKey];
+            
+            highlightMigrationPath(autoPlayState.currentIndex);
+            
+            const bounds = L.latLngBounds([startLocation.coords, endLocation.coords]);
+            map.fitBounds(bounds, { padding: [100, 100], maxZoom: 5, duration: 1 });
+            
+            setTimeout(() => {
+                const backupTimer = setTimeout(() => {
+                    console.log("备份定时器触发，强制前进到下一阶段");
+                    moveToNextMigration();
+                }, 10000);
+                
+                if (endLocation && endLocation.marker) {
+                    endLocation.marker.openPopup();
+                    
+                    const popupContent = endLocation.marker.getPopup().getContent();
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = popupContent;
+                    const audio = tempDiv.querySelector('audio');
+                    
+                    if (audio) {
+                        const audioSrc = audio.querySelector('source').getAttribute('src');
+                        const playbackAudio = new Audio(audioSrc);
+                        
+                        playbackAudio.addEventListener('ended', () => {
+                            clearTimeout(backupTimer);
+                            moveToNextMigration();
+                        });
+                        
+                        playbackAudio.play().catch(error => {
+                            console.warn("自动播放失败:", error);
+                            autoPlayState.timer = setTimeout(() => {
+                                clearTimeout(backupTimer);
+                                moveToNextMigration();
+                            }, 6000);
+                        });
+                        
+                        autoPlayState.currentAudio = playbackAudio;
+                    } else {
+                        autoPlayState.timer = setTimeout(() => {
+                            clearTimeout(backupTimer);
+                            moveToNextMigration();
+                        }, 4000);
+                    }
+                } else {
+                    autoPlayState.timer = setTimeout(() => {
+                        clearTimeout(backupTimer);
+                        moveToNextMigration();
+                    }, 3000);
+                }
+            }, 1000);
+        }
+
+        function moveToNextMigration() {
+            if (autoPlayState.currentAudio && !autoPlayState.currentAudio.paused) {
+                autoPlayState.currentAudio.pause();
+                autoPlayState.currentAudio = null;
+            }
+            
+            if (autoPlayState.timer) {
+                clearTimeout(autoPlayState.timer);
+                autoPlayState.timer = null;
+            }
+            
+            removeAllPathHighlights();
+            
+            map.closePopup();
+            
+            autoPlayState.currentIndex++;
+            
+            if (autoPlayState.currentIndex >= migrations.length) {
+                autoPlayState.statusText.innerHTML = '迁徙之旅已完成!';
+                autoPlayState.playButton.innerHTML = '🔄 重新开始';
+                autoPlayState.isPlaying = false;
+                return;
+            }
+            
+            playCurrentMigration();
+        }
+
+        function highlightMigrationPath(index) {
+            removeAllPathHighlights();
+            
+            const paths = document.querySelectorAll('.leaflet-curve-pane path');
+            
+            if (paths[index]) {
+                paths[index].classList.add('migration-line-highlight');
+            }
+        }
+
+        function removeAllPathHighlights() {
+            document.querySelectorAll('.leaflet-curve-pane path').forEach(path => {
+                path.classList.remove('migration-line-highlight');
+            });
+        }
+
+        createAutoPlayControls();
+
+        const style = document.createElement('style');
+        style.textContent = `
+            .migration-line-highlight {
+                stroke: #FFDA00 !important;
+                stroke-width: 5 !important;
+                stroke-opacity: 1 !important;
+                stroke-dasharray: 10, 5;
+                animation: dashdraw 1s linear infinite;
+            }
+            
+            @keyframes dashdraw {
+                0% {
+                    stroke-dashoffset: 15;
+                }
+                100% {
+                    stroke-dashoffset: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+    </script>
+
+</body>
+
+</html>
